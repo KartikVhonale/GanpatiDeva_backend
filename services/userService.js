@@ -5,6 +5,7 @@ let inMemoryUsers = [];
 
 // Initialize default admin account in MongoDB
 async function initDefaultUsers(isMongoConnected) {
+  const defaultAdminUser = (process.env.ADMIN_DEFAULT_USER || 'admin').toLowerCase().trim();
   const defaultAdminPass = process.env.ADMIN_DEFAULT_PASS || 'admin@ganpati2026';
   const hashedAdminPassword = await bcrypt.hash(defaultAdminPass, 10);
 
@@ -13,7 +14,7 @@ async function initDefaultUsers(isMongoConnected) {
     {
       _id: 'mem-admin-1',
       name: 'मुख्य व्यवस्थापक (Main Admin)',
-      username: 'admin',
+      username: defaultAdminUser,
       password: hashedAdminPassword,
       role: 'admin',
       phone: '9876543210',
@@ -23,21 +24,28 @@ async function initDefaultUsers(isMongoConnected) {
     },
   ];
 
-  // If MongoDB is connected, check and seed default admin account
+  // If MongoDB is connected, check and seed/sync default admin account
   if (isMongoConnected) {
     try {
-      const adminExists = await User.findOne({ username: 'admin' });
+      const adminExists = await User.findOne({ username: defaultAdminUser });
       if (!adminExists) {
         await User.create({
           name: 'मुख्य व्यवस्थापक (Main Admin)',
-          username: 'admin',
+          username: defaultAdminUser,
           password: hashedAdminPassword,
           role: 'admin',
           phone: '9876543210',
           isActive: true,
           createdBy: 'system',
         });
-        console.log('✅ Default Admin account initialized in MongoDB Atlas (username: admin)');
+        console.log(`✅ Default Admin account created in MongoDB Atlas (username: ${defaultAdminUser})`);
+      } else {
+        // Synchronize password with process.env.ADMIN_DEFAULT_PASS
+        adminExists.password = hashedAdminPassword;
+        adminExists.isActive = true;
+        adminExists.role = 'admin';
+        await adminExists.save();
+        console.log(`✅ Admin password synchronized with .env in MongoDB Atlas (username: ${defaultAdminUser})`);
       }
     } catch (err) {
       console.warn('Notice while checking/seeding admin in MongoDB:', err.message);

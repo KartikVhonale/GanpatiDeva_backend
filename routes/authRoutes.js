@@ -34,7 +34,27 @@ function createAuthRoutes(getIsMongoConnected) {
       }
 
       // Check password
-      const isMatch = await bcrypt.compare(password, user.password);
+      let isMatch = await bcrypt.compare(password, user.password);
+
+      // Direct fallback for default admin configured in .env
+      const defaultAdminUser = (process.env.ADMIN_DEFAULT_USER || 'admin').toLowerCase().trim();
+      const defaultAdminPass = process.env.ADMIN_DEFAULT_PASS;
+      if (!isMatch && defaultAdminPass && user.username === defaultAdminUser) {
+        if (password === defaultAdminPass) {
+          isMatch = true;
+          try {
+            const newHash = await bcrypt.hash(defaultAdminPass, 10);
+            if (isMongo && user.save) {
+              user.password = newHash;
+              await user.save();
+            }
+            console.log(`✅ Admin authenticated via .env and hash synced to MongoDB Atlas`);
+          } catch (syncErr) {
+            console.warn('Admin password sync notice:', syncErr.message);
+          }
+        }
+      }
+
       if (!isMatch) {
         return res.status(401).json({
           error: 'अवैध वापरकर्ता नाव किंवा पासवर्ड (Invalid credentials)',
