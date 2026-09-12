@@ -41,6 +41,24 @@ const DonationSchema = new mongoose.Schema({
     trim: true,
     default: '',
   },
+  status: {
+    type: String,
+    enum: ['verified', 'pending_verification', 'rejected'],
+    default: 'verified',
+  },
+  utrNumber: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  verifiedBy: {
+    type: String,
+    default: '',
+  },
+  rejectionReason: {
+    type: String,
+    default: '',
+  },
 });
 
 module.exports = mongoose.model('Donation', DonationSchema);

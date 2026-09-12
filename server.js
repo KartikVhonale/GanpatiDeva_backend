@@ -8,6 +8,7 @@ require('dotenv').config();
 
 const Donation = require('./models/Donation');
 const userService = require('./services/userService');
+const settingsService = require('./services/settingsService');
 const { JWT_SECRET } = require('./middleware/auth');
 const createAuthRoutes = require('./routes/authRoutes');
 const createAdminRoutes = require('./routes/adminRoutes');
@@ -117,22 +118,55 @@ mongoose.connection.on('disconnected', () => {
 
 // Register Authentication & Admin Routes
 app.use('/api/auth', createAuthRoutes(() => isMongoConnected));
-app.use('/api/admin', createAdminRoutes(() => isMongoConnected));
+app.use(
+  '/api/admin',
+  createAdminRoutes({
+    getIsMongoConnected: () => isMongoConnected,
+    getDonationsData,
+    io,
+    getInMemoryDonations: () => inMemoryDonations,
+  })
+);
 
 // Helper to compute all stats and return all donations from the database
 async function getDonationsData() {
   let allDonations = [];
+  const verifiedFilter = {
+    $or: [
+      { status: 'verified' },
+      { status: { $exists: false } },
+      { status: null },
+    ],
+  };
 
   if (isMongoConnected) {
     try {
-      allDonations = await Donation.find().sort({ timestamp: -1 }).lean();
+      allDonations = await Donation.find(verifiedFilter).sort({ timestamp: -1 }).lean();
     } catch (err) {
       console.error('Error calculating from MongoDB:', err.message);
-      allDonations = inMemoryDonations;
+      allDonations = inMemoryDonations.filter(
+        (d) => d.status !== 'pending_verification' && d.status !== 'rejected'
+      );
     }
   } else {
-    allDonations = [...inMemoryDonations].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    allDonations = inMemoryDonations
+      .filter((d) => d.status !== 'pending_verification' && d.status !== 'rejected')
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   }
+
+  // Count pending verification requests
+  let pendingRequestsCount = 0;
+  if (isMongoConnected) {
+    try {
+      pendingRequestsCount = await Donation.countDocuments({ status: 'pending_verification' });
+    } catch (e) {}
+  } else {
+    pendingRequestsCount = inMemoryDonations.filter((d) => d.status === 'pending_verification').length;
+  }
+
+  // Load dynamic settings (targetAmount, upiId, etc.)
+  const settings = await settingsService.getSettings(isMongoConnected);
+  const targetAmount = settings.targetAmount || 500000;
 
   let totalVargani = 0;
   let prasadCount = 0;
@@ -160,7 +194,7 @@ async function getDonationsData() {
 
   return {
     totalVargani,
-    targetAmount: 500000,
+    targetAmount,
     donorCount: allDonations.length,
     prasadCount,
     aartiSponsors,
@@ -169,6 +203,8 @@ async function getDonationsData() {
     donors: allDonations, // ALL donations with all names and numbers of money
     allDonors: allDonations,
     recentDonors: allDonations.slice(0, 10),
+    pendingRequestsCount,
+    settings,
     isMongoConnected,
   };
 }
@@ -253,6 +289,76 @@ app.get('/api/donations/all', async (req, res) => {
     res.status(500).json({ error: 'Failed to retrieve all donations', details: err.message });
   }
 });
+
+// GET /api/settings - Public settings (Target amount, UPI ID, QR Code URL)
+app.get('/api/settings', async (req, res) => {
+  try {
+    const settings = await settingsService.getSettings(isMongoConnected);
+    res.json({ success: true, settings });
+  } catch (err) {
+    console.error('Error fetching settings:', err);
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+// POST /api/donations/verify-request - Devotee submits online payment verification request
+app.post('/api/donations/verify-request', async (req, res) => {
+  try {
+    const { name, amount, category, city, phone, utrNumber } = req.body;
+
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      return res.status(400).json({ error: 'कृपया वैध देणगी रक्कम प्रविष्ट करा (Valid amount required)' });
+    }
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'कृपया आपले नाव प्रविष्ट करा (Donor name is required)' });
+    }
+    if (!utrNumber || !utrNumber.trim()) {
+      return res.status(400).json({ error: 'कृपया UPI / बँक ट्रॅन्झॅक्शन UTR नंबर प्रविष्ट करा (UTR / Ref number required)' });
+    }
+
+    const payload = {
+      name: name.trim(),
+      amount: Number(amount),
+      category: category || 'महाप्रसाद सेवा',
+      city: city && city.trim() ? city.trim() : 'ऑनलाइन भाविक',
+      phone: phone ? String(phone).trim() : '',
+      utrNumber: utrNumber.trim(),
+      paymentMethod: 'online',
+      status: 'pending_verification',
+      recordedBy: 'ऑनलाइन भाविक (स्वयं-नोंदणी)',
+      timestamp: new Date(),
+    };
+
+    let savedRequest;
+    if (isMongoConnected) {
+      savedRequest = await Donation.create(payload);
+    } else {
+      savedRequest = {
+        _id: `mem-${Date.now()}`,
+        ...payload,
+      };
+      inMemoryDonations.unshift(savedRequest);
+    }
+
+    // Broadcast to Admin dashboards via Socket.io in real-time
+    io.emit('payment_request_created', {
+      request: savedRequest,
+      message: `🔔 नवीन ऑनलाइन पेमेंट पडताळणी विनंती: ₹${savedRequest.amount} - ${savedRequest.name}`,
+    });
+
+    console.log(`📩 New payment verification request received: ₹${savedRequest.amount} from ${savedRequest.name} (UTR: ${savedRequest.utrNumber})`);
+
+    res.status(201).json({
+      success: true,
+      message: 'आपली देणगी पडताळणी विनंती यशस्वीपणे पाठवली आहे! व्यवस्थापकांच्या पडताळणीनंतर पावती तयार होईल.',
+      request: savedRequest,
+    });
+  } catch (err) {
+    console.error('Error submitting payment verification request:', err);
+    res.status(500).json({ error: 'विनंती पाठवताना त्रुटी आली', details: err.message });
+  }
+});
+
 
 // POST /api/donations - Saves new donation and broadcasts via Socket.io
 app.post('/api/donations', async (req, res) => {
