@@ -10,6 +10,7 @@ function createAdminRoutes(options) {
   const getDonationsData = typeof options === 'object' ? options.getDonationsData : null;
   const io = typeof options === 'object' ? options.io : null;
   const getInMemoryDonations = typeof options === 'object' ? options.getInMemoryDonations : () => [];
+  const deleteInMemoryDonation = typeof options === 'object' ? options.deleteInMemoryDonation : null;
 
   const router = express.Router();
 
@@ -261,6 +262,93 @@ function createAdminRoutes(options) {
     } catch (err) {
       console.error('Error deleting user:', err);
       res.status(400).json({ error: err.message || 'वापरकर्ता हटवण्यात त्रुटी' });
+    }
+  });
+
+  // =========================================================================
+  // 4. DONATIONS MANAGEMENT & DELETION (Strictly Admin Only)
+  // =========================================================================
+
+  // GET /api/admin/donations - List all donations for admin
+  router.get('/donations', async (req, res) => {
+    try {
+      const isMongo = getIsMongoConnected();
+      let donations = [];
+
+      if (isMongo) {
+        donations = await Donation.find({ status: { $ne: 'rejected' } })
+          .sort({ timestamp: -1 })
+          .lean();
+      } else {
+        const memList = getInMemoryDonations ? getInMemoryDonations() : [];
+        donations = memList
+          .filter((d) => d.status !== 'rejected')
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      }
+
+      res.json({
+        success: true,
+        donations,
+        count: donations.length,
+      });
+    } catch (err) {
+      console.error('Error fetching donations for admin:', err);
+      res.status(500).json({ error: 'देणग्या आणताना त्रुटी आली', details: err.message });
+    }
+  });
+
+  // DELETE /api/admin/donations/:id - Delete a donation (Strictly Admin only)
+  router.delete('/donations/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const isMongo = getIsMongoConnected();
+      let deletedDonation = null;
+
+      if (isMongo && id && !id.startsWith('mem-')) {
+        deletedDonation = await Donation.findByIdAndDelete(id);
+      }
+
+      if (!deletedDonation && deleteInMemoryDonation) {
+        deletedDonation = deleteInMemoryDonation(id);
+      }
+
+      if (!deletedDonation) {
+        const memList = getInMemoryDonations ? getInMemoryDonations() : [];
+        const idx = memList.findIndex((d) => String(d._id) === String(id) || String(d.id) === String(id));
+        if (idx !== -1) {
+          deletedDonation = memList.splice(idx, 1)[0];
+        }
+      }
+
+      if (!deletedDonation) {
+        return res.status(404).json({ error: 'देणगी नोंद आढळली नाही (Donation not found)' });
+      }
+
+      console.log(`🗑️ Admin (${req.user.username}) deleted donation: ID ${id}, Amount ₹${deletedDonation.amount}, Donor: ${deletedDonation.name}`);
+
+      // Recalculate stats and broadcast in real-time
+      let stats = {};
+      if (getDonationsData) {
+        stats = await getDonationsData();
+      }
+
+      if (io) {
+        io.emit('donation_deleted', {
+          donationId: id,
+          ...stats,
+        });
+        io.emit('stats_updated', stats);
+      }
+
+      res.json({
+        success: true,
+        message: `₹${Number(deletedDonation.amount).toLocaleString()} ची देणगी (${deletedDonation.name}) यशस्वीपणे हटवली!`,
+        deletedDonation,
+        stats,
+      });
+    } catch (err) {
+      console.error('Error deleting donation:', err);
+      res.status(500).json({ error: 'देणगी हटवताना त्रुटी आली', details: err.message });
     }
   });
 

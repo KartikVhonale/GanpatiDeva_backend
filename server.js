@@ -125,6 +125,13 @@ app.use(
     getDonationsData,
     io,
     getInMemoryDonations: () => inMemoryDonations,
+    deleteInMemoryDonation: (id) => {
+      const idx = inMemoryDonations.findIndex((d) => String(d._id) === String(id) || String(d.id) === String(id));
+      if (idx !== -1) {
+        return inMemoryDonations.splice(idx, 1)[0];
+      }
+      return null;
+    },
   })
 );
 
