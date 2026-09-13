@@ -7,6 +7,7 @@ let inMemoryUsers = [];
 async function initDefaultUsers(isMongoConnected) {
   const defaultAdminUser = (process.env.ADMIN_DEFAULT_USER || 'admin').toLowerCase().trim();
   const defaultAdminPass = process.env.ADMIN_DEFAULT_PASS || 'admin@ganpati2026';
+  const defaultAdminPhone = (process.env.ADMIN_DEFAULT_PHONE || '8484844728').trim();
   const hashedAdminPassword = await bcrypt.hash(defaultAdminPass, 10);
 
   // Setup initial in-memory admin
@@ -17,7 +18,7 @@ async function initDefaultUsers(isMongoConnected) {
       username: defaultAdminUser,
       password: hashedAdminPassword,
       role: 'admin',
-      phone: '9876543210',
+      phone: defaultAdminPhone,
       isActive: true,
       createdAt: new Date(),
       createdBy: 'system',
@@ -34,18 +35,19 @@ async function initDefaultUsers(isMongoConnected) {
           username: defaultAdminUser,
           password: hashedAdminPassword,
           role: 'admin',
-          phone: '9876543210',
+          phone: defaultAdminPhone,
           isActive: true,
           createdBy: 'system',
         });
-        console.log(`✅ Default Admin account created in MongoDB Atlas (username: ${defaultAdminUser})`);
+        console.log(`✅ Default Admin account created in MongoDB Atlas (username: ${defaultAdminUser}, phone: ${defaultAdminPhone})`);
       } else {
-        // Synchronize password with process.env.ADMIN_DEFAULT_PASS
+        // Synchronize password and phone with process.env / defaults
         adminExists.password = hashedAdminPassword;
         adminExists.isActive = true;
         adminExists.role = 'admin';
+        adminExists.phone = defaultAdminPhone;
         await adminExists.save();
-        console.log(`✅ Admin password synchronized with .env in MongoDB Atlas (username: ${defaultAdminUser})`);
+        console.log(`✅ Admin account synchronized in MongoDB Atlas (username: ${defaultAdminUser}, phone: ${defaultAdminPhone})`);
       }
     } catch (err) {
       console.warn('Notice while checking/seeding admin in MongoDB:', err.message);
