@@ -67,7 +67,7 @@ const SettingSchema = new mongoose.Schema({
   },
   upiId: {
     type: String,
-    default: 'mandal.ganpati@upi',
+    default: '8484844728@slc',
     trim: true,
   },
   upiName: {

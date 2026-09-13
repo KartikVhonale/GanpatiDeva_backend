@@ -12,8 +12,12 @@ const settingsService = require('./services/settingsService');
 const { JWT_SECRET } = require('./middleware/auth');
 const createAuthRoutes = require('./routes/authRoutes');
 const createAdminRoutes = require('./routes/adminRoutes');
+const { securityHeaders } = require('./middleware/securityLimiter');
 
 const app = express();
+// Enable trust proxy so Express correctly reads real client IP behind reverse proxies / cloud platforms (Render, Vercel, Nginx)
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 
 // In-memory fallback store (empty by default - all data stored in MongoDB Atlas)
@@ -73,6 +77,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(securityHeaders);
 
 // Root & Health Check routes for Render monitoring
 app.get('/', (req, res) => {

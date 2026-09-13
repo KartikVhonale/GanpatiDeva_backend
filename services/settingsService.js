@@ -41,7 +41,7 @@ const DEFAULT_SOCIAL_INITIATIVES = [
   {
     id: 'init-4',
     title: 'बाल संस्कार व सांस्कृतिक स्पर्धा',
-    stats: '४००+ बाल कलाकार सहभागी',
+    stats: '४+ बाल कलाकार सहभागी',
     desc: 'चित्रकला, वकृत्व, श्लोक पठण व पारंपरिक भजन स्पर्धांचे आयोजन करून कलागुणांना प्रोत्साहन.',
     iconName: 'Award',
     tag: 'संस्कृती संवर्धन',
@@ -61,7 +61,7 @@ const DEFAULT_DAILY_SCHEDULE = [
 
 let inMemorySettings = {
   targetAmount: 500000,
-  upiId: 'mandal.ganpati@upi',
+  upiId: '8484844728@slc',
   upiName: 'सार्वजनिक श्री गणेश उत्सव मंडळ',
   qrCodeUrl: '',
   qrCodeNote: 'स्कॅन करा आणि बाप्पाच्या चरणी सेवा अर्पण करा',
@@ -76,10 +76,13 @@ async function getSettings(isMongoConnected) {
       let doc = await Setting.findOne();
       if (!doc) {
         doc = await Setting.create(inMemorySettings);
+      } else if (!doc.upiId || doc.upiId === 'mandal.ganpati@upi') {
+        doc.upiId = '8484844728@slc';
+        await doc.save();
       }
       return {
         targetAmount: doc.targetAmount || 500000,
-        upiId: doc.upiId || 'mandal.ganpati@upi',
+        upiId: doc.upiId || '8484844728@slc',
         upiName: doc.upiName || 'सार्वजनिक श्री गणेश उत्सव मंडळ',
         qrCodeUrl: doc.qrCodeUrl || '',
         qrCodeNote: doc.qrCodeNote || 'स्कॅन करा आणि बाप्पाच्या चरणी सेवा अर्पण करा',

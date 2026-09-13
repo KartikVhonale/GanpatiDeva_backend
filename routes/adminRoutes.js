@@ -2,6 +2,7 @@ const express = require('express');
 const { verifyToken, requireAdmin } = require('../middleware/auth');
 const userService = require('../services/userService');
 const settingsService = require('../services/settingsService');
+const securityService = require('../services/securityService');
 const Donation = require('../models/Donation');
 
 function createAdminRoutes(options) {
@@ -351,6 +352,43 @@ function createAdminRoutes(options) {
     } catch (err) {
       console.error('Error deleting donation:', err);
       res.status(500).json({ error: 'देणगी हटवताना त्रुटी आली', details: err.message });
+    }
+  });
+
+  // =========================================================================
+  // 5. SECURITY & BRUTE-FORCE LOCKOUT MANAGEMENT
+  // =========================================================================
+
+  // GET /api/admin/security/blocked-ips - List all currently blocked IPs
+  router.get('/security/blocked-ips', async (req, res) => {
+    try {
+      const isMongo = getIsMongoConnected();
+      const blockedIps = await securityService.listBlockedIps(isMongo);
+      res.json({
+        success: true,
+        count: blockedIps.length,
+        blockedIps,
+      });
+    } catch (err) {
+      console.error('Error fetching blocked IPs:', err);
+      res.status(500).json({ error: 'Failed to fetch blocked IPs', details: err.message });
+    }
+  });
+
+  // POST /api/admin/security/unblock-ip - Unblock an IP address manually
+  router.post('/security/unblock-ip', async (req, res) => {
+    try {
+      const { ip } = req.body;
+      if (!ip || typeof ip !== 'string') {
+        return res.status(400).json({ error: 'अवैध IP पत्ता (Valid IP address required)' });
+      }
+
+      const isMongo = getIsMongoConnected();
+      const result = await securityService.unblockIp(ip.trim(), isMongo);
+      res.json(result);
+    } catch (err) {
+      console.error('Error unblocking IP:', err);
+      res.status(500).json({ error: 'Failed to unblock IP', details: err.message });
     }
   });
 
