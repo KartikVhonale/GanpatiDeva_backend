@@ -73,12 +73,14 @@ function createAdminRoutes(options) {
       let requests = [];
 
       if (isMongo) {
-        requests = await Donation.find({ status: 'pending_verification' }).sort({ timestamp: -1 }).lean();
+        requests = await Donation.find({ status: 'pending_verification' })
+          .sort({ amount: -1, timestamp: -1 })
+          .lean();
       } else {
         const memList = getInMemoryDonations ? getInMemoryDonations() : [];
         requests = memList
           .filter((d) => d.status === 'pending_verification')
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          .sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0) || new Date(b.timestamp) - new Date(a.timestamp));
       }
 
       res.json({
@@ -277,13 +279,13 @@ function createAdminRoutes(options) {
 
       if (isMongo) {
         donations = await Donation.find({ status: { $ne: 'rejected' } })
-          .sort({ timestamp: -1 })
+          .sort({ amount: -1, timestamp: -1 })
           .lean();
       } else {
         const memList = getInMemoryDonations ? getInMemoryDonations() : [];
         donations = memList
           .filter((d) => d.status !== 'rejected')
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          .sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0) || new Date(b.timestamp) - new Date(a.timestamp));
       }
 
       res.json({

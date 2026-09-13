@@ -61,4 +61,8 @@ const DonationSchema = new mongoose.Schema({
   },
 });
 
+// Index to optimize queries sorting by highest donation amount first
+DonationSchema.index({ amount: -1, timestamp: -1 });
+DonationSchema.index({ status: 1, amount: -1, timestamp: -1 });
+
 module.exports = mongoose.model('Donation', DonationSchema);

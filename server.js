@@ -148,17 +148,19 @@ async function getDonationsData() {
 
   if (isMongoConnected) {
     try {
-      allDonations = await Donation.find(verifiedFilter).sort({ timestamp: -1 }).lean();
+      allDonations = await Donation.find(verifiedFilter)
+        .sort({ amount: -1, timestamp: -1 })
+        .lean();
     } catch (err) {
       console.error('Error calculating from MongoDB:', err.message);
-      allDonations = inMemoryDonations.filter(
-        (d) => d.status !== 'pending_verification' && d.status !== 'rejected'
-      );
+      allDonations = inMemoryDonations
+        .filter((d) => d.status !== 'pending_verification' && d.status !== 'rejected')
+        .sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0) || new Date(b.timestamp) - new Date(a.timestamp));
     }
   } else {
     allDonations = inMemoryDonations
       .filter((d) => d.status !== 'pending_verification' && d.status !== 'rejected')
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      .sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0) || new Date(b.timestamp) - new Date(a.timestamp));
   }
 
   // Count pending verification requests
@@ -344,7 +346,8 @@ app.post('/api/donations/verify-request', async (req, res) => {
         _id: `mem-${Date.now()}`,
         ...payload,
       };
-      inMemoryDonations.unshift(savedRequest);
+      inMemoryDonations.push(savedRequest);
+      inMemoryDonations.sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0) || new Date(b.timestamp) - new Date(a.timestamp));
     }
 
     // Broadcast to Admin dashboards via Socket.io in real-time
@@ -413,7 +416,8 @@ app.post('/api/donations', async (req, res) => {
         paymentMethod: paymentMethod || 'cash',
         timestamp: new Date(),
       };
-      inMemoryDonations.unshift(savedDonation);
+      inMemoryDonations.push(savedDonation);
+      inMemoryDonations.sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0) || new Date(b.timestamp) - new Date(a.timestamp));
     }
 
     const statsData = await getDonationsData();
