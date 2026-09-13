@@ -378,7 +378,7 @@ app.post('/api/donations/verify-request', async (req, res) => {
 // POST /api/donations - Saves new donation and broadcasts via Socket.io
 app.post('/api/donations', async (req, res) => {
   try {
-    const { name, amount, category, city, blessing, paymentMethod } = req.body;
+    const { name, amount, category, city, phone, blessing, paymentMethod, utrNumber } = req.body;
 
     if (!amount || Number(amount) <= 0) {
       return res.status(400).json({ error: 'Valid amount greater than 0 is required.' });
@@ -396,6 +396,9 @@ app.post('/api/donations', async (req, res) => {
       } catch (_) {}
     }
 
+    const cleanPhone = phone ? String(phone).trim() : '';
+    const cleanUtr = utrNumber ? String(utrNumber).trim() : '';
+
     let savedDonation;
     if (isMongoConnected) {
       const newDonation = new Donation({
@@ -406,7 +409,8 @@ app.post('/api/donations', async (req, res) => {
         blessing: blessing || 'गणेश कृपेने सर्व मनोरथ पूर्ण होवोत',
         recordedBy,
         paymentMethod: paymentMethod || 'cash',
-        phone: req.body.phone ? String(req.body.phone).trim() : '',
+        phone: cleanPhone,
+        utrNumber: cleanUtr,
       });
       savedDonation = await newDonation.save();
     } else {
@@ -419,6 +423,8 @@ app.post('/api/donations', async (req, res) => {
         blessing: blessing || 'गणेश कृपेने सर्व मनोरथ पूर्ण होवोत',
         recordedBy,
         paymentMethod: paymentMethod || 'cash',
+        phone: cleanPhone,
+        utrNumber: cleanUtr,
         timestamp: new Date(),
       };
       inMemoryDonations.push(savedDonation);
