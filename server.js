@@ -10,6 +10,7 @@ const Donation = require('./models/Donation');
 const userService = require('./services/userService');
 const settingsService = require('./services/settingsService');
 const noticeService = require('./services/noticeService');
+const musicService = require('./services/musicService');
 const { JWT_SECRET } = require('./middleware/auth');
 const createAuthRoutes = require('./routes/authRoutes');
 const createAdminRoutes = require('./routes/adminRoutes');
@@ -324,6 +325,65 @@ app.get('/api/notices', async (req, res) => {
   } catch (err) {
     console.error('Error fetching public notices:', err);
     res.status(500).json({ error: 'Failed to retrieve notices', details: err.message });
+  }
+});
+
+// =========================================================================
+// MUSIC & BHAJAN PLAYLIST & SUGGESTIONS API (गणपती भक्ती संगीत व गाणी)
+// =========================================================================
+
+// GET /api/music/songs - Public curated playlist and approved devotee suggestions
+app.get('/api/music/songs', async (req, res) => {
+  try {
+    const data = await musicService.getAllSongs(isMongoConnected);
+    res.json({
+      success: true,
+      ...data,
+      mandalName: 'श्री बाल गणेश मंडळ धानोरा बु.',
+    });
+  } catch (err) {
+    console.error('Error fetching music songs:', err);
+    res.status(500).json({ error: 'Failed to retrieve music playlist', details: err.message });
+  }
+});
+
+// POST /api/music/suggest - Devotee submits a Ganpati song suggestion
+app.post('/api/music/suggest', async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'कृपया गाण्याचे नाव प्रविष्ट करा (Song title is required)' });
+    }
+
+    const saved = await musicService.createSuggestion(req.body, isMongoConnected);
+
+    // Broadcast new suggestion event to all connected clients
+    io.emit('new_music_suggestion', {
+      suggestion: saved,
+      message: `🎶 नवीन गाणे सुचवले गेले: "${saved.title}" (${saved.suggestedBy})`,
+    });
+
+    console.log(`🎶 Music suggested: "${saved.title}" by ${saved.suggestedBy} (YouTube ID: ${saved.youtubeId})`);
+
+    res.status(201).json({
+      success: true,
+      message: 'गाणे यशस्वीरित्या सुचवले गेले व प्लेअरमध्ये जोडले गेले! बाप्पा मोरया! 🎶',
+      suggestion: saved,
+    });
+  } catch (err) {
+    console.error('Error submitting music suggestion:', err);
+    res.status(400).json({ error: err.message || 'गाणे सुचवताना त्रुटी आली' });
+  }
+});
+
+// POST /api/music/like/:id - Upvote a song
+app.post('/api/music/like/:id', async (req, res) => {
+  try {
+    const result = await musicService.likeSong(req.params.id, isMongoConnected);
+    io.emit('music_liked', result);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: 'Like failed' });
   }
 });
 

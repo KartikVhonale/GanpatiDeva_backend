@@ -4,6 +4,7 @@ const userService = require('../services/userService');
 const settingsService = require('../services/settingsService');
 const securityService = require('../services/securityService');
 const noticeService = require('../services/noticeService');
+const musicService = require('../services/musicService');
 const Donation = require('../models/Donation');
 
 function createAdminRoutes(options) {
@@ -502,6 +503,73 @@ function createAdminRoutes(options) {
     } catch (err) {
       console.error('Error deleting notice:', err);
       res.status(400).json({ error: err.message || 'सूचना हटवताना त्रुटी' });
+    }
+  });
+
+  // =========================================================================
+  // 7. GANPATI MUSIC & SUGGESTIONS MANAGEMENT (भक्ती संगीत व्यवस्थापन)
+  // =========================================================================
+
+  // GET /api/admin/music-suggestions - View all devotee suggestions
+  router.get('/music-suggestions', async (req, res) => {
+    try {
+      const isMongo = getIsMongoConnected();
+      const suggestions = await musicService.getAllSuggestions(isMongo);
+      res.json({
+        success: true,
+        count: suggestions.length,
+        suggestions,
+      });
+    } catch (err) {
+      console.error('Error fetching admin music suggestions:', err);
+      res.status(500).json({ error: 'Failed to fetch suggestions', details: err.message });
+    }
+  });
+
+  // PATCH /api/admin/music-suggestions/:id - Approve or Reject suggestion
+  router.patch('/music-suggestions/:id', async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!['approved', 'pending', 'rejected'].includes(status)) {
+        return res.status(400).json({ error: 'अवैध स्थिती (Invalid status)' });
+      }
+
+      const isMongo = getIsMongoConnected();
+      const updated = await musicService.updateSuggestionStatus(req.params.id, status, isMongo);
+
+      if (io) {
+        io.emit('music_suggestion_updated', { id: req.params.id, status });
+      }
+
+      res.json({
+        success: true,
+        message: `गाण्याची स्थिती यशस्वीरित्या ${status === 'approved' ? 'मंजूर' : 'अस्वीकृत'} केली!`,
+        suggestion: updated,
+      });
+    } catch (err) {
+      console.error('Error updating music suggestion:', err);
+      res.status(400).json({ error: err.message || 'स्थिती बदलताना त्रुटी' });
+    }
+  });
+
+  // DELETE /api/admin/music-suggestions/:id - Delete suggestion
+  router.delete('/music-suggestions/:id', async (req, res) => {
+    try {
+      const isMongo = getIsMongoConnected();
+      const deleted = await musicService.deleteSuggestion(req.params.id, isMongo);
+
+      if (io) {
+        io.emit('music_suggestion_deleted', { id: req.params.id });
+      }
+
+      res.json({
+        success: true,
+        message: 'गाण्याची सूचना यशस्वीरित्या हटवली!',
+        suggestion: deleted,
+      });
+    } catch (err) {
+      console.error('Error deleting music suggestion:', err);
+      res.status(400).json({ error: err.message || 'गाणे हटवताना त्रुटी' });
     }
   });
 
