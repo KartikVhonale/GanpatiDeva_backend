@@ -539,11 +539,12 @@ function createAdminRoutes(options) {
 
       if (io) {
         io.emit('music_suggestion_updated', { id: req.params.id, status });
+        io.emit('songs_updated');
       }
 
       res.json({
         success: true,
-        message: `गाण्याची स्थिती यशस्वीरित्या ${status === 'approved' ? 'मंजूर' : 'अस्वीकृत'} केली!`,
+        message: `गाण्याची स्थिती यशस्वीरित्या ${status === 'approved' ? 'मंजूर' : status === 'pending' ? 'प्रलंबित' : 'अस्वीकृत'} केली!`,
         suggestion: updated,
       });
     } catch (err) {
@@ -560,6 +561,7 @@ function createAdminRoutes(options) {
 
       if (io) {
         io.emit('music_suggestion_deleted', { id: req.params.id });
+        io.emit('songs_updated');
       }
 
       res.json({

@@ -139,7 +139,7 @@ async function createSuggestion(data, isMongoConnected) {
     suggestedBy: (suggestedBy || 'भाविक').trim(),
     phone: (phone || '').trim(),
     message: (message || '').trim(),
-    status: 'approved', // Auto-approved for immediate playback
+    status: 'pending', // Requires admin approval before becoming live
     likes: 1,
     createdAt: new Date(),
     updatedAt: new Date(),

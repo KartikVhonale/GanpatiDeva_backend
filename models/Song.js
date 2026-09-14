@@ -75,7 +75,7 @@ const SongSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['approved', 'pending', 'rejected'],
-    default: 'approved',
+    default: 'pending',
     index: true,
   },
   createdAt: {

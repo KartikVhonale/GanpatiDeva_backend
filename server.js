@@ -371,7 +371,7 @@ app.post('/api/music/suggest', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'गाणे यशस्वीरित्या सुचवले गेले व प्लेअरमध्ये जोडले गेले! बाप्पा मोरया! 🎶',
+      message: 'गाणे यशस्वीरित्या पाठवले आहे! मंडळाच्या प्रशासक मंजुरीनंतर (Admin Approval) हे गाणे लाइव्ह प्लेअरमध्ये जोडले जाईल. बाप्पा मोरया! 🎶',
       suggestion: saved,
     });
   } catch (err) {
