@@ -73,10 +73,15 @@ const io = new Server(server, {
   },
 });
 
+const compression = require('compression');
+
 // Middleware
 app.use(cors({
   origin: checkOrigin,
   credentials: true,
+}));
+app.use(compression({
+  threshold: 1024,
 }));
 app.use(express.json());
 app.use(securityHeaders);
@@ -98,12 +103,16 @@ app.get('/health', (req, res) => {
 // Initialize users in in-memory list initially
 userService.initDefaultUsers(false);
 
-// MongoDB Atlas Connection
+// MongoDB Atlas Connection with high-concurrency connection pooling
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/ganpati_utsav';
 console.log('Connecting to MongoDB Atlas...');
 mongoose.connect(MONGO_URI, { 
   dbName: 'ganpati_utsav',
-  serverSelectionTimeoutMS: 15000 
+  serverSelectionTimeoutMS: 15000,
+  maxPoolSize: 50,
+  minPoolSize: 10,
+  socketTimeoutMS: 45000,
+  connectTimeoutMS: 10000,
 })
   .then(async () => {
     isMongoConnected = true;
@@ -133,7 +142,8 @@ app.use(
   '/api/admin',
   createAdminRoutes({
     getIsMongoConnected: () => isMongoConnected,
-    getDonationsData,
+    getDonationsData: (force = true) => getDonationsData(force),
+    invalidateDonationsCache,
     io,
     getInMemoryDonations: () => inMemoryDonations,
     deleteInMemoryDonation: (id) => {
@@ -146,8 +156,23 @@ app.use(
   })
 );
 
-// Helper to compute all stats and return all donations from the database
-async function getDonationsData() {
+// High-concurrency in-memory cache for donations aggregated stats
+let donationsCache = null;
+let donationsCacheTime = 0;
+const DONATIONS_CACHE_TTL_MS = 3000; // 3 seconds cache TTL for peak concurrent traffic
+
+function invalidateDonationsCache() {
+  donationsCache = null;
+  donationsCacheTime = 0;
+}
+
+// Helper to compute all stats and return all donations from the database (cached for high concurrency)
+async function getDonationsData(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && donationsCache && (now - donationsCacheTime < DONATIONS_CACHE_TTL_MS)) {
+    return donationsCache;
+  }
+
   let allDonations = [];
   const verifiedFilter = {
     $or: [
@@ -212,7 +237,7 @@ async function getDonationsData() {
     }
   }
 
-  return {
+  const result = {
     totalVargani,
     targetAmount,
     donorCount: allDonations.length,
@@ -227,6 +252,10 @@ async function getDonationsData() {
     settings,
     isMongoConnected,
   };
+
+  donationsCache = result;
+  donationsCacheTime = now;
+  return result;
 }
 
 async function calculateTotalVargani() {
@@ -287,6 +316,7 @@ app.get('/', async (req, res) => {
 // GET /api/donations - Returns totalVargani, stats, and all donations with names & amounts
 app.get('/api/donations', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'public, max-age=3, stale-while-revalidate=10');
     const data = await getDonationsData();
     res.json(data);
   } catch (err) {
@@ -298,6 +328,7 @@ app.get('/api/donations', async (req, res) => {
 // GET /api/donations/all - Dedicated endpoint for all donations
 app.get('/api/donations/all', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'public, max-age=3, stale-while-revalidate=10');
     const data = await getDonationsData();
     res.json({
       success: true,
@@ -313,6 +344,7 @@ app.get('/api/donations/all', async (req, res) => {
 // GET /api/settings - Public settings (Target amount, UPI ID, QR Code URL)
 app.get('/api/settings', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
     const settings = await settingsService.getSettings(isMongoConnected);
     res.json({ success: true, settings });
   } catch (err) {
@@ -324,6 +356,7 @@ app.get('/api/settings', async (req, res) => {
 // GET /api/notices - Public notice board announcements
 app.get('/api/notices', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
     const notices = await noticeService.getPublicNotices(isMongoConnected);
     res.json({ success: true, count: notices.length, notices });
   } catch (err) {
@@ -339,6 +372,7 @@ app.get('/api/notices', async (req, res) => {
 // GET /api/music/songs - Public curated playlist and approved devotee suggestions
 app.get('/api/music/songs', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
     const data = await musicService.getAllSongs(isMongoConnected);
     res.json({
       success: true,
@@ -507,7 +541,9 @@ app.post('/api/donations', async (req, res) => {
       inMemoryDonations.sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0) || new Date(b.timestamp) - new Date(a.timestamp));
     }
 
-    const statsData = await getDonationsData();
+    // Invalidate cache and fetch fresh stats
+    invalidateDonationsCache();
+    const statsData = await getDonationsData(true);
 
     // Broadcast new_donation event with all updated numbers & new donor to all connected Socket.io clients
     io.emit('new_donation', {

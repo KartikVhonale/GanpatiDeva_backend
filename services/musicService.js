@@ -8,6 +8,16 @@ const DEFAULT_SONGS = [
 // In-memory fallback (empty - all data in MongoDB)
 let inMemorySongs = [];
 
+// High-performance in-memory cache for live songs playlist
+let songsCache = null;
+let songsCacheTime = 0;
+const SONGS_CACHE_TTL_MS = 60 * 1000; // 60s cache TTL
+
+function invalidateSongsCache() {
+  songsCache = null;
+  songsCacheTime = 0;
+}
+
 /**
  * Extract clean 11-char YouTube ID from any URL or ID
  */
@@ -39,6 +49,7 @@ async function seedDefaultSongsIfEmpty(isMongoConnected) {
           suggestedBy: 'श्री बाल गणेश मंडळ धानोरा बु.',
         });
       }
+      invalidateSongsCache();
       console.log('✅ Successfully seeded 20 Ganpati songs into MongoDB!');
     }
   } catch (err) {
@@ -47,9 +58,14 @@ async function seedDefaultSongsIfEmpty(isMongoConnected) {
 }
 
 /**
- * Get all playable songs directly from MongoDB
+ * Get all playable songs directly from MongoDB (with in-memory cache for high concurrency)
  */
-async function getAllSongs(isMongoConnected) {
+async function getAllSongs(isMongoConnected, forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && songsCache && (now - songsCacheTime < SONGS_CACHE_TTL_MS)) {
+    return songsCache;
+  }
+
   if (isMongoConnected) {
     try {
       const docs = await Song.find({ status: 'approved' })
@@ -79,11 +95,14 @@ async function getAllSongs(isMongoConnected) {
           createdAt: s.createdAt,
         }));
 
-        return {
+        const result = {
           curated: formatted.filter((s) => !s.isSuggestion),
           suggestions: formatted.filter((s) => s.isSuggestion),
           all: formatted,
         };
+        songsCache = result;
+        songsCacheTime = now;
+        return result;
       }
     } catch (err) {
       console.error('Error fetching songs from MongoDB:', err.message);
@@ -163,6 +182,7 @@ async function createSuggestion(data, isMongoConnected) {
  * Toggle or update status of a song (Admin)
  */
 async function updateSuggestionStatus(id, status, isMongoConnected) {
+  invalidateSongsCache();
   if (isMongoConnected && id && !id.startsWith('mem-') && !id.startsWith('suggest-')) {
     const updated = await Song.findByIdAndUpdate(
       id,
@@ -185,6 +205,7 @@ async function updateSuggestionStatus(id, status, isMongoConnected) {
  * Delete a song from MongoDB
  */
 async function deleteSuggestion(id, isMongoConnected) {
+  invalidateSongsCache();
   if (isMongoConnected && id && !id.startsWith('mem-') && !id.startsWith('suggest-')) {
     const res = await Song.findByIdAndDelete(id).lean();
     if (res) return res;
@@ -201,6 +222,7 @@ async function deleteSuggestion(id, isMongoConnected) {
  * Like a song in MongoDB
  */
 async function likeSong(id, isMongoConnected) {
+  invalidateSongsCache();
   if (isMongoConnected && id && !id.startsWith('mem-') && !id.startsWith('suggest-')) {
     try {
       const updated = await Song.findByIdAndUpdate(

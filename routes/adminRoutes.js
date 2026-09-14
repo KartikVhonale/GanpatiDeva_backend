@@ -11,6 +11,7 @@ function createAdminRoutes(options) {
   // Support both legacy signature createAdminRoutes(getIsMongoConnected) and options object
   const getIsMongoConnected = typeof options === 'function' ? options : options.getIsMongoConnected;
   const getDonationsData = typeof options === 'object' ? options.getDonationsData : null;
+  const invalidateDonationsCache = typeof options === 'object' && options.invalidateDonationsCache ? options.invalidateDonationsCache : () => {};
   const io = typeof options === 'object' ? options.io : null;
   const getInMemoryDonations = typeof options === 'object' ? options.getInMemoryDonations : () => [];
   const deleteInMemoryDonation = typeof options === 'object' ? options.deleteInMemoryDonation : null;
@@ -121,10 +122,11 @@ function createAdminRoutes(options) {
         donation.verifiedBy = req.user.name || req.user.username;
       }
 
-      // Recalculate stats with the newly verified donation
+      // Invalidate cache and recalculate stats with the newly verified donation
+      invalidateDonationsCache();
       let stats = {};
       if (getDonationsData) {
-        stats = await getDonationsData();
+        stats = await getDonationsData(true);
       }
 
       // Broadcast new_donation event to all connected TV screens and dashboards
@@ -331,10 +333,11 @@ function createAdminRoutes(options) {
 
       console.log(`🗑️ Admin (${req.user.username}) deleted donation: ID ${id}, Amount ₹${deletedDonation.amount}, Donor: ${deletedDonation.name}`);
 
-      // Recalculate stats and broadcast in real-time
+      // Invalidate cache, recalculate stats and broadcast in real-time
+      invalidateDonationsCache();
       let stats = {};
       if (getDonationsData) {
-        stats = await getDonationsData();
+        stats = await getDonationsData(true);
       }
 
       if (io) {

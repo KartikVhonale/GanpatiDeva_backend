@@ -61,8 +61,12 @@ const DonationSchema = new mongoose.Schema({
   },
 });
 
-// Index to optimize queries sorting by highest donation amount first
+// High-performance indexes to support festival-scale traffic queries
 DonationSchema.index({ amount: -1, timestamp: -1 });
 DonationSchema.index({ status: 1, amount: -1, timestamp: -1 });
+DonationSchema.index({ timestamp: -1 });
+DonationSchema.index({ status: 1, timestamp: -1 });
+DonationSchema.index({ phone: 1 });
+DonationSchema.index({ utrNumber: 1 });
 
 module.exports = mongoose.model('Donation', DonationSchema);
