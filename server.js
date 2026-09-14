@@ -9,6 +9,7 @@ require('dotenv').config();
 const Donation = require('./models/Donation');
 const userService = require('./services/userService');
 const settingsService = require('./services/settingsService');
+const noticeService = require('./services/noticeService');
 const { JWT_SECRET } = require('./middleware/auth');
 const createAuthRoutes = require('./routes/authRoutes');
 const createAdminRoutes = require('./routes/adminRoutes');
@@ -312,6 +313,17 @@ app.get('/api/settings', async (req, res) => {
   } catch (err) {
     console.error('Error fetching settings:', err);
     res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+// GET /api/notices - Public notice board announcements
+app.get('/api/notices', async (req, res) => {
+  try {
+    const notices = await noticeService.getPublicNotices(isMongoConnected);
+    res.json({ success: true, count: notices.length, notices });
+  } catch (err) {
+    console.error('Error fetching public notices:', err);
+    res.status(500).json({ error: 'Failed to retrieve notices', details: err.message });
   }
 });
 

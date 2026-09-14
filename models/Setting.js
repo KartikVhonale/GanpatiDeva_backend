@@ -72,7 +72,7 @@ const SettingSchema = new mongoose.Schema({
   },
   upiName: {
     type: String,
-    default: 'सार्वजनिक श्री गणेश उत्सव मंडळ',
+    default: 'श्री बाल गणेश मंडळ धानोरा बु.',
     trim: true,
   },
   qrCodeUrl: {

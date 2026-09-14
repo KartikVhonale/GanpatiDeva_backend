@@ -62,7 +62,7 @@ const DEFAULT_DAILY_SCHEDULE = [
 let inMemorySettings = {
   targetAmount: 500000,
   upiId: '8484844728@slc',
-  upiName: 'सार्वजनिक श्री गणेश उत्सव मंडळ',
+  upiName: 'श्री बाल गणेश मंडळ धानोरा बु.',
   qrCodeUrl: '',
   qrCodeNote: 'स्कॅन करा आणि बाप्पाच्या चरणी सेवा अर्पण करा',
   ganeshaImages: DEFAULT_GANESHA_IMAGES,
@@ -76,14 +76,24 @@ async function getSettings(isMongoConnected) {
       let doc = await Setting.findOne();
       if (!doc) {
         doc = await Setting.create(inMemorySettings);
-      } else if (!doc.upiId || doc.upiId === 'mandal.ganpati@upi') {
-        doc.upiId = '8484844728@slc';
-        await doc.save();
+      } else {
+        let changed = false;
+        if (!doc.upiId || doc.upiId === 'mandal.ganpati@upi') {
+          doc.upiId = '8484844728@slc';
+          changed = true;
+        }
+        if (!doc.upiName || doc.upiName === 'सार्वजनिक श्री गणेश उत्सव मंडळ') {
+          doc.upiName = 'श्री बाल गणेश मंडळ धानोरा बु.';
+          changed = true;
+        }
+        if (changed) {
+          await doc.save();
+        }
       }
       return {
         targetAmount: doc.targetAmount || 500000,
         upiId: doc.upiId || '8484844728@slc',
-        upiName: doc.upiName || 'सार्वजनिक श्री गणेश उत्सव मंडळ',
+        upiName: doc.upiName || 'श्री बाल गणेश मंडळ धानोरा बु.',
         qrCodeUrl: doc.qrCodeUrl || '',
         qrCodeNote: doc.qrCodeNote || 'स्कॅन करा आणि बाप्पाच्या चरणी सेवा अर्पण करा',
         ganeshaImages: Array.isArray(doc.ganeshaImages) && doc.ganeshaImages.length > 0 ? doc.ganeshaImages : DEFAULT_GANESHA_IMAGES,

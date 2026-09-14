@@ -3,6 +3,7 @@ const { verifyToken, requireAdmin } = require('../middleware/auth');
 const userService = require('../services/userService');
 const settingsService = require('../services/settingsService');
 const securityService = require('../services/securityService');
+const noticeService = require('../services/noticeService');
 const Donation = require('../models/Donation');
 
 function createAdminRoutes(options) {
@@ -389,6 +390,118 @@ function createAdminRoutes(options) {
     } catch (err) {
       console.error('Error unblocking IP:', err);
       res.status(500).json({ error: 'Failed to unblock IP', details: err.message });
+    }
+  });
+
+  // =========================================================================
+  // 6. NOTICE BOARD MANAGEMENT (अधिकृत सूचना फलक)
+  // =========================================================================
+
+  // GET /api/admin/notices - Fetch all notices (active & inactive)
+  router.get('/notices', async (req, res) => {
+    try {
+      const isMongo = getIsMongoConnected();
+      const notices = await noticeService.getAllNotices(isMongo);
+      res.json({
+        success: true,
+        count: notices.length,
+        notices,
+      });
+    } catch (err) {
+      console.error('Error fetching admin notices:', err);
+      res.status(500).json({ error: 'Failed to fetch notices', details: err.message });
+    }
+  });
+
+  // POST /api/admin/notices - Create new notice
+  router.post('/notices', async (req, res) => {
+    try {
+      const isMongo = getIsMongoConnected();
+      const authorName = req.user.name || req.user.username || 'श्री बाल गणेश मंडळ व्यवस्थापक';
+      const created = await noticeService.createNotice(req.body, isMongo, authorName);
+
+      // Broadcast updated public notices to all screens (Home, Live TV, Volunteers)
+      if (io) {
+        const publicNotices = await noticeService.getPublicNotices(isMongo);
+        io.emit('notices_updated', { notices: publicNotices, newNotice: created });
+      }
+
+      console.log(`📢 Notice published: "${created.title}" [${created.category}] by ${authorName}`);
+
+      res.status(201).json({
+        success: true,
+        message: 'सूचना यशस्वीपणे फलकावर प्रकाशित झाली! (Notice published successfully)',
+        notice: created,
+      });
+    } catch (err) {
+      console.error('Error creating notice:', err);
+      res.status(400).json({ error: err.message || 'सूचना तयार करताना त्रुटी आली' });
+    }
+  });
+
+  // PUT /api/admin/notices/:id - Update existing notice
+  router.put('/notices/:id', async (req, res) => {
+    try {
+      const isMongo = getIsMongoConnected();
+      const updated = await noticeService.updateNotice(req.params.id, req.body, isMongo);
+
+      if (io) {
+        const publicNotices = await noticeService.getPublicNotices(isMongo);
+        io.emit('notices_updated', { notices: publicNotices, updatedNotice: updated });
+      }
+
+      res.json({
+        success: true,
+        message: 'सूचना यशस्वीरित्या अद्ययावत केली! (Notice updated)',
+        notice: updated,
+      });
+    } catch (err) {
+      console.error('Error updating notice:', err);
+      res.status(400).json({ error: err.message || 'सूचना अद्ययावत करताना त्रुटी' });
+    }
+  });
+
+  // PATCH /api/admin/notices/:id/toggle - Toggle notice active/inactive status
+  router.patch('/notices/:id/toggle', async (req, res) => {
+    try {
+      const isMongo = getIsMongoConnected();
+      const toggled = await noticeService.toggleNoticeActive(req.params.id, isMongo);
+
+      if (io) {
+        const publicNotices = await noticeService.getPublicNotices(isMongo);
+        io.emit('notices_updated', { notices: publicNotices, toggledNotice: toggled });
+      }
+
+      res.json({
+        success: true,
+        message: `सूचना आता ${toggled.isActive ? 'सक्रिय (Live)' : 'अप्रकाशित (Hidden)'} केली आहे!`,
+        notice: toggled,
+      });
+    } catch (err) {
+      console.error('Error toggling notice:', err);
+      res.status(400).json({ error: err.message || 'स्थिती बदलताना त्रुटी' });
+    }
+  });
+
+  // DELETE /api/admin/notices/:id - Delete a notice
+  router.delete('/notices/:id', async (req, res) => {
+    try {
+      const isMongo = getIsMongoConnected();
+      const deleted = await noticeService.deleteNotice(req.params.id, isMongo);
+
+      if (io) {
+        const publicNotices = await noticeService.getPublicNotices(isMongo);
+        io.emit('notices_updated', { notices: publicNotices, deletedId: req.params.id });
+      }
+
+      res.json({
+        success: true,
+        message: 'सूचना यशस्वीरित्या हटवली! (Notice deleted)',
+        notice: deleted,
+      });
+    } catch (err) {
+      console.error('Error deleting notice:', err);
+      res.status(400).json({ error: err.message || 'सूचना हटवताना त्रुटी' });
     }
   });
 
