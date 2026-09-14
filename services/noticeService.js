@@ -1,42 +1,10 @@
 const Notice = require('../models/Notice');
 
 const DEFAULT_NOTICES = [
-  {
-    _id: 'notice-default-1',
-    title: 'काकड आरती, महाआरती व महाप्रसाद वेळ',
-    content: 'रोज सकाळी ८:०० वाजता काकड आरती व सायंकाळी ७:३० वाजता मुख्य महाआरती होईल. दुपारी १२:०० ते ३:०० दरम्यान महाप्रसाद (अन्नदान) वाटप सुरू राहील. सर्व भाविकांनी उपस्थित राहावे.',
-    category: 'prasad',
-    priority: 'high',
-    isActive: true,
-    postedBy: 'श्री बाल गणेश मंडळ व्यवस्थापक',
-    createdAt: new Date(Date.now() - 3600000), // 1 hour ago
-    updatedAt: new Date(Date.now() - 3600000),
-  },
-  {
-    _id: 'notice-default-2',
-    title: 'ऑनलाइन देणगी व तात्काळ डिजिटल पावती सुविधा',
-    content: 'मंडळाच्या अधिकृत UPI ID (8484844728@slc) वरून घरबसल्या अथवा मंडपात देणगी पाठवू शकता. देणगी नोंद होताच तात्काळ अधिकृत डिजिटल पावती थेट आपल्या व्हॉट्सॲपवर पाठवली जाते.',
-    category: 'general',
-    priority: 'normal',
-    isActive: true,
-    postedBy: 'श्री बाल गणेश मंडळ व्यवस्थापक',
-    createdAt: new Date(Date.now() - 7200000), // 2 hours ago
-    updatedAt: new Date(Date.now() - 7200000),
-  },
-  {
-    _id: 'notice-default-3',
-    title: 'भव्य रक्तदान व मोफत आरोग्य तपासणी शिबिर',
-    content: 'रविवार रोजी सकाळी ९ ते दुपारी २ वाजेपर्यंत मंडळाच्या मुख्य मंडपामध्ये मोफत रक्तदान व आरोग्य तपासणी शिबिर आयोजित केले आहे. जास्तीत जास्त भाविकांनी व युवकांनी रक्तदान करावे.',
-    category: 'event',
-    priority: 'medium',
-    isActive: true,
-    postedBy: 'श्री बाल गणेश मंडळ व्यवस्थापक',
-    createdAt: new Date(Date.now() - 14400000), // 4 hours ago
-    updatedAt: new Date(Date.now() - 14400000),
-  },
+  
 ];
 
-let inMemoryNotices = [...DEFAULT_NOTICES];
+let inMemoryNotices = [];
 
 async function seedDefaultNoticesIfEmpty(isMongoConnected) {
   if (isMongoConnected) {
@@ -67,32 +35,30 @@ function sortNotices(list) {
   });
 }
 
-// Get public active notices
+// Get public active notices directly from MongoDB
 async function getPublicNotices(isMongoConnected) {
   if (isMongoConnected) {
     try {
-      await seedDefaultNoticesIfEmpty(true);
       const docs = await Notice.find({ isActive: true }).lean();
       return sortNotices(docs);
     } catch (err) {
       console.error('Error fetching public notices from MongoDB:', err.message);
     }
   }
-  return sortNotices(inMemoryNotices.filter((n) => n.isActive));
+  return [];
 }
 
-// Get all notices for admin
+// Get all notices for admin directly from MongoDB
 async function getAllNotices(isMongoConnected) {
   if (isMongoConnected) {
     try {
-      await seedDefaultNoticesIfEmpty(true);
       const docs = await Notice.find().sort({ createdAt: -1 }).lean();
       return docs;
     } catch (err) {
       console.error('Error fetching all notices from MongoDB:', err.message);
     }
   }
-  return [...inMemoryNotices].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return [];
 }
 
 // Create new notice
@@ -187,6 +153,7 @@ async function deleteNotice(id, isMongoConnected) {
 }
 
 module.exports = {
+  seedDefaultNoticesIfEmpty,
   getPublicNotices,
   getAllNotices,
   createNotice,

@@ -109,6 +109,8 @@ mongoose.connect(MONGO_URI, {
     isMongoConnected = true;
     console.log('✅ Connected to MongoDB Atlas! Database:', mongoose.connection.name);
     await userService.initDefaultUsers(true);
+    await noticeService.seedDefaultNoticesIfEmpty(true);
+    await musicService.seedDefaultSongsIfEmpty(true);
   })
   .catch((err) => {
     isMongoConnected = false;
@@ -118,6 +120,8 @@ mongoose.connect(MONGO_URI, {
 mongoose.connection.on('connected', async () => {
   isMongoConnected = true;
   await userService.initDefaultUsers(true);
+  await noticeService.seedDefaultNoticesIfEmpty(true);
+  await musicService.seedDefaultSongsIfEmpty(true);
 });
 mongoose.connection.on('disconnected', () => {
   isMongoConnected = false;
