@@ -11,42 +11,7 @@ const DEFAULT_GANESHA_IMAGES = [
 ];
 
 const DEFAULT_SOCIAL_INITIATIVES = [
-  {
-    id: 'init-1',
-    title: 'भव्य रक्तदान शिबिर (Blood Donation Camp)',
-    stats: '२५०+ बाटल्या रक्त संकलन',
-    desc: 'दरवर्षी गणेशोत्सवाच्या ५ व्या दिवशी स्थानिक शासकीय रुग्णालयांच्या सहकार्याने आयोजित.',
-    iconName: 'Droplet',
-    tag: 'आरोग्य सेवा',
-    color: 'border-rose-500/40 bg-rose-950/30 text-rose-300',
-  },
-  {
-    id: 'init-2',
-    title: 'दैनिक महाप्रसाद वाटप (Maha Prasad)',
-    stats: '१,५००+ दररोज थाळ्या',
-    desc: 'मंडळात येणाऱ्या प्रत्येक भाविकासाठी शुद्ध, सात्विक आणि तृप्त करणारा महाप्रसाद विनामूल्य.',
-    iconName: 'Utensils',
-    tag: 'अन्नदान सेवा',
-    color: 'border-amber-500/40 bg-amber-950/30 text-amber-300',
-  },
-  {
-    id: 'init-3',
-    title: 'गुणवंत विद्यार्थी सत्कार व शैक्षणिक मदत',
-    stats: '५० गरजू विद्यार्थ्यांना शिष्यवृत्ती',
-    desc: 'परिसरातील होतकरू विद्यार्थ्यांना वह्या, पुस्तके व शालेय साहित्य वाटप उपक्रम.',
-    iconName: 'GraduationCap',
-    tag: 'शैक्षणिक सेवा',
-    color: 'border-orange-500/40 bg-orange-950/30 text-orange-300',
-  },
-  {
-    id: 'init-4',
-    title: 'बाल संस्कार व सांस्कृतिक स्पर्धा',
-    stats: '४+ बाल कलाकार सहभागी',
-    desc: 'चित्रकला, वकृत्व, श्लोक पठण व पारंपरिक भजन स्पर्धांचे आयोजन करून कलागुणांना प्रोत्साहन.',
-    iconName: 'Award',
-    tag: 'संस्कृती संवर्धन',
-    color: 'border-red-500/40 bg-red-950/30 text-red-300',
-  },
+  
 ];
 
 const DEFAULT_DAILY_SCHEDULE = [
@@ -60,7 +25,7 @@ const DEFAULT_DAILY_SCHEDULE = [
 ];
 
 let inMemorySettings = {
-  targetAmount: 500000,
+  targetAmount: 100000,
   upiId: '8484844728@slc',
   upiName: 'श्री बाल गणेश मंडळ धानोरा बु.',
   qrCodeUrl: '',
