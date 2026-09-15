@@ -211,7 +211,7 @@ async function getDonationsData(forceRefresh = false) {
 
   // Load dynamic settings (targetAmount, upiId, etc.)
   const settings = await settingsService.getSettings(isMongoConnected);
-  const targetAmount = settings.targetAmount || 500000;
+  const targetAmount = settings.targetAmount || 10000;
 
   let totalVargani = 0;
   let prasadCount = 0;

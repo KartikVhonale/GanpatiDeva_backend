@@ -25,7 +25,7 @@ const DEFAULT_DAILY_SCHEDULE = [
 ];
 
 let inMemorySettings = {
-  targetAmount: 100000,
+  targetAmount: 10000,
   upiId: '8484844728@slc',
   upiName: 'श्री बाल गणेश मंडळ धानोरा बु.',
   qrCodeUrl: '',
@@ -51,12 +51,16 @@ async function getSettings(isMongoConnected) {
           doc.upiName = 'श्री बाल गणेश मंडळ धानोरा बु.';
           changed = true;
         }
+        if (!doc.targetAmount || doc.targetAmount === 500000 || doc.targetAmount === 100000) {
+          doc.targetAmount = 10000;
+          changed = true;
+        }
         if (changed) {
           await doc.save();
         }
       }
       return {
-        targetAmount: doc.targetAmount || 500000,
+        targetAmount: doc.targetAmount || 10000,
         upiId: doc.upiId || '8484844728@slc',
         upiName: doc.upiName || 'श्री बाल गणेश मंडळ धानोरा बु.',
         qrCodeUrl: doc.qrCodeUrl || '',

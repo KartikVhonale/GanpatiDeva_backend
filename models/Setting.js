@@ -62,7 +62,7 @@ const DEFAULT_DAILY_SCHEDULE = [
 const SettingSchema = new mongoose.Schema({
   targetAmount: {
     type: Number,
-    default: 500000,
+    default: 10000,
     min: [1, 'लक्ष्य रक्कम १ पेक्षा जास्त असावी'],
   },
   upiId: {
